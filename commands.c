@@ -3,13 +3,15 @@
 char *builtin_srt[] = {
     "cd",
     "help",
-    "exit"
+    "exit",
+    "read"
 };
 
 int (*builtin_func[]) (char **) = {
     &lsh_cd,
     &lsh_help,
-    &lsh_exit
+    &lsh_exit,
+    &lsh_read
 };  
 
 int lsh_num_builtins() {
@@ -43,4 +45,28 @@ int lsh_help(char **args) {
 
 int lsh_exit(char **args) {
     return 0;
+}
+
+int lsh_read(char **args) {
+    //function to read a file line by line and print to standard output
+    //write me this code using getline
+    if (args[1] == NULL) {
+        fprintf(stderr, "lsh: expected argument to \"read\"\n");
+        return 1;
+    }   
+    FILE *file = fopen(args[1], "r");
+    if (file == NULL) {
+        perror("lsh: could not open file");
+        return 1;
+    }
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    while ((read = getline(&line, &len, file)) != -1) {
+        printf("%s", line);
+    }
+    printf("\n");
+    free(line);
+    fclose(file);
+    return 1;        
 }

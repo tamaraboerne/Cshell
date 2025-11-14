@@ -8,10 +8,12 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include "lsh.h"
+
 // Function declarations for inbuild shell commands
 int lsh_cd(char **args);
 int lsh_help(char **args);
 int lsh_exit(char **args);
-
+int lsh_read(char **args);
 
 #endif 
