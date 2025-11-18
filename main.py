@@ -87,6 +87,8 @@ class ShellGUI:
         if command.strip():
             # Display the command with prompt
             self.append_output(f"lsh> {command}\n")
+            # create output where command is shown like a shell
+            
             
             # Send command to shell process
             if self.process:
