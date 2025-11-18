@@ -1,23 +1,35 @@
 #include "lsh.h"
+#include "commands.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 void lsh_loop() {
-    // Main loop of the shell
     char *line;
     char **args;
     int status;
 
     do {
-        // Print prompt
-        printf("> ");
-        
-        // Read line
+        // Read line from stdin (Python GUI provides it)
         line = lsh_read_line();
+        
+        if (line == NULL || strlen(line) == 0) {
+            free(line);
+            continue;
+        }
         
         // Parse line
         args = lsh_split_line(line);
         
         // Execute command
         status = lsh_execute(args);
+        
+        // Flush output so Python GUI sees it immediately
+        fflush(stdout);
+        fflush(stderr);
         
         // Free memory
         free(line);
@@ -27,7 +39,6 @@ void lsh_loop() {
 }
 
 int lsh_launch(char **args) {
-    // Function to launch a program
     pid_t pid, wpid;
     int status;
 
@@ -52,72 +63,45 @@ int lsh_launch(char **args) {
 }
 
 char *lsh_read_line() {
-    // Function to read a line of input from the user
-    size_t bufsize = LSH_BUFSIZE;
-    int position = 0;
-    int c;
-
-    char *buffer = malloc(bufsize * sizeof(char));
-    if (!buffer) {
-        fprintf(stderr, "lsh: allocation error\n");
-        exit(EXIT_FAILURE);
-    }
-
-    while(1) {
-        // Read a character
-        c = getchar();
-
-        // If we hit EOF, replace it with a null character and return
-        if (c == EOF || c == '\n') {
-            buffer[position] = '\0';
-            return buffer;
-        } else {
-            buffer[position] = c;
-        }
-        position++;
-
-        // If we have exceeded the buffer, reallocate
-        if (position >= bufsize) {
-            bufsize += LSH_BUFSIZE;
-            buffer = realloc(buffer, bufsize);
-            if (!buffer) {
-                fprintf(stderr, "lsh: allocation error\n");
-                exit(EXIT_FAILURE);
-            }
-        }
-    }
-
-    /* ------ in short with getLine() ------
-
     char *line = NULL;
-    ssize_t bufsize = 0; // have getline allocate a buffer for us
+    size_t bufsize = 0;
+    
     if (getline(&line, &bufsize, stdin) == -1) {
         if (feof(stdin)) {
-            exit(EXIT_SUCCESS);  // We received an EOF
-        } else  {
-            perror("lsh: getline\n");
+            exit(EXIT_SUCCESS);
+        } else {
+            perror("lsh: getline");
             exit(EXIT_FAILURE);
         }
-    }                
-    */
-
+    }
+    
+    // Remove newline
+    if (line && line[strlen(line) - 1] == '\n') {
+        line[strlen(line) - 1] = '\0';
+    }
+    
+    return line;
 }
 
 char **lsh_split_line(char *line) {
-    // Function to split a line into tokens (arguments)
     int bufsize = LSH_TOK_BUFSIZE; 
     int position = 0;
     char **tokens = malloc(bufsize * sizeof(char*));
-    char *token;
+    char *token, *line_copy;
 
     if (!tokens) {
         fprintf(stderr, "lsh: allocation error\n");
         exit(EXIT_FAILURE);
     }
 
-    token = strtok(line, " \t\r\n");
+    // strtok modifies the string, so make a copy
+    line_copy = malloc(strlen(line) + 1);
+    strcpy(line_copy, line);
+
+    token = strtok(line_copy, " \t\r\n");
     while (token != NULL) {
-        tokens[position] = token;
+        tokens[position] = malloc(strlen(token) + 1);
+        strcpy(tokens[position], token);
         position++;
 
         if (position >= bufsize) {
@@ -132,21 +116,16 @@ char **lsh_split_line(char *line) {
         token = strtok(NULL, " \t\r\n");
     }
     tokens[position] = NULL;
+    free(line_copy);
     return tokens;
 }
 
 int lsh_execute(char **args) {
-    // Function to execute a command
     if (args[0] == NULL) {
-        // An empty command was entered
         return 1;
     }
 
     // Check for built-in commands
-    extern int lsh_num_builtins();
-    extern char *builtin_srt[];
-    extern int (*builtin_func[]) (char **);
-
     for (int i = 0; i < lsh_num_builtins(); i++) {
         if (strcmp(args[0], builtin_srt[i]) == 0) {
             return (*builtin_func[i])(args);
